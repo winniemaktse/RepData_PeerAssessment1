@@ -7,19 +7,89 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
+```{r 1}
+unzip("activity.zip")
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(activity$date, "%Y-%m-%d")
+library(dplyr)
+```
 
 ## What is mean total number of steps taken per day?
+```{r 2&3}
+stepsbyday <- activity %>% 
+      group_by(date) %>% 
+      summarise(totalSteps = sum(steps, na.rm=TRUE))
 
-
+with(stepsbyday, plot(date, totalSteps, 
+                      type = "h",
+                      main = "Total number of steps taken each day",
+                      xlab = "Date",
+                      ylab = "Total number of steps"))
+```
+  
+#### Mean number of steps taken each day = `r mean(stepsbyday$totalSteps)`  
+#### Median number of steps taken each day = `r median(stepsbyday$totalSteps)`
 
 ## What is the average daily activity pattern?
+```{r 4&5}
+stepsbytime <- activity %>% 
+      group_by(interval) %>% 
+      summarise(avgSteps = mean(steps, na.rm=TRUE))
 
+with(stepsbytime, plot(interval, avgSteps, 
+                       type="l",
+                       main = "Time series plot of the average number of steps taken",
+                       xlab = "Interval",
+                       ylab = "Average number of steps"))
 
+maxStepTime <- stepsbytime[stepsbytime$avgSteps == max(stepsbytime$avgSteps),1]
+```
+  
+#### The 5-minute interval that, on average, contains the maximum number of steps = `r maxStepTime`
 
 ## Imputing missing values
 
+#### Total number of **NA** in the dataset = `r sum(activity$steps %in% NA)`
+```{r 6&7}
+## Create a new dataset and replace NA with mean for that 5-minute interval
+imputed <- merge(activity, stepsbytime)
+imputed[imputed$steps %in% NA, 2] <- imputed[imputed$steps %in% NA, 4] 
+
+newstepsbyday <- imputed %>% 
+          group_by(date) %>% 
+          summarise(totalSteps = sum(steps, na.rm=TRUE))
+
+with(newstepsbyday, plot(date, totalSteps, 
+                      type = "h",
+                      main = "Total number of steps taken each day after missing values are imputed",
+                      xlab = "Date",
+                      ylab = "Total number of steps"))
+```
+  
+#### Mean number of steps taken each day = `r mean(newstepsbyday$totalSteps)`  
+#### Median number of steps taken each day = `r median(newstepsbyday$totalSteps)`
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+``` {r 8}
+# create a vector of weekdays
+wdays <- c("Monday", "Tuesday", "Wednesay", "Thursday", "Friday")
+# Use `%in%` and `weekdays` to create a logical vector
+# convert to `factor` and specify the `levels/labels`
+imputed$wDay <- factor((weekdays(imputed$date) %in% wdays), 
+                       levels = c(FALSE, TRUE), 
+                       labels = c("weekend", "weekday"))
+
+newstepsbytime <- imputed %>% 
+      group_by(interval, wDay) %>% 
+      summarise(avgSteps = mean(steps, na.rm=TRUE))
+
+library(lattice)
+xyplot(avgSteps ~ interval | wDay, data = newstepsbytime, 
+       main = "Time series plot of the average number of steps taken",
+       xlab = "Interval",
+       ylab = "Average number of steps",
+       layout = c(1,2),
+       type="l")
+
+```
